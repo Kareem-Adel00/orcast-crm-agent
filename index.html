@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoMark AI — Engineering Case Study | Kareem Adel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap');
+
+        :root {
+            --gold: #C99A2E;
+            --gold-light: #E0B23E;
+            --gold-dark: #B8962F;
+            --gold-muted: rgba(201,154,46,0.12);
+            --amber: #D97706;
+            --warm-yellow: #FCD34D;
+            --white: #1C1A14;
+            --ink-on-gold: #20180A;
+            --gray-100: #FAF8F3;
+            --gray-200: #52525B;
+            --gray-300: #3F3F46;
+            --gray-400: #5B6472;
+            --gray-500: #6B7280;
+            --gray-600: #8A8F98;
+            --gray-700: #374151;
+            --gray-800: #1F2937;
+            --gray-900: #111827;
+            --dark-bg: #F6F3EC;
+            --dark-surface: #FFFFFF;
+            --dark-card: #FFFFFF;
+            --dark-card-hover: #ECE7DC;
+            --dark-border: #E4DFD2;
+            --dark-border-light: #D8D2C2;
+            --dark-elevated: #EFEAE0;
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark-bg);
+            color: var(--white);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            cursor: default;
+        }
+
+        /* ===== CANVAS PARTICLE BG ===== */
+        #particleCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== LOADING SCREEN ===== */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--dark-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 1s cubic-bezier(.4,0,.2,1), visibility 1s;
+        }
+        .loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .loading-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 3rem;
+        }
+        .loading-brand-icon {
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--gold), var(--amber));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 0 40px rgba(212,175,55,0.3);
+            animation: loadPulse 2s ease-in-out infinite;
+        }
+        .loading-brand-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold), var(--amber), var(--gold-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .loading-track {
+            width: 280px; height: 3px;
+            background: var(--dark-border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .loading-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            border-radius: 2px;
+            transition: width 0.25s ease;
+            box-shadow: 0 0 16px rgba(212,175,55,0.5);
+        }
+        .loading-sub {
+            margin-top: 1.25rem;
+            font-size: 0.8125rem;
+            color: var(--gray-500);
+            letter-spacing: 0.08em;
+        }
+
+        @keyframes loadPulse {
+            0%,100% { box-shadow: 0 0 40px rgba(212,175,55,0.3); }
+            50% { box-shadow: 0 0 60px rgba(212,175,55,0.55); }
+        }
+
+        /* ===== PROGRESS BAR (TOP) ===== */
+        .top-progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            z-index: 9999;
+            transition: width 0.6s cubic-bezier(.4,0,.2,1);
+            box-shadow: 0 0 12px rgba(212,175,55,0.4);
+        }
+
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 5000;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(24px) saturate(1.2);
+            -webkit-backdrop-filter: blur(24px) saturate(1.2);
+            border: 1px solid var(--dark-border);
+            border-radius: 100px;
+            padding: 0.625rem 1.25rem;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+        .bottom-nav.visible { opacity: 1; }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--dark-border-light);
+            cursor: pointer;
+            transition: all 0.35s ease;
+        }
+        .dot.active {
+            background: var(--gold);
+            box-shadow: 0 0 8px rgba(212,175,55,0.6);
+            transform: scale(1.35);
+        }
+        .dot:hover:not(.active) { background: var(--gray-500); }
+
+        .nav-counter {
+            font-size: 0.8125rem;
+            color: var(--gray-500);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            min-width: 42px;
+            text-align: center;
+        }
+        .nav-counter b { color: var(--gold); font-weight: 600; }
+
+        /* ===== SIDE ARROWS ===== */
+        .side-arrows {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 5000;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+        .side-arrows.visible { opacity: 1; }
+
+        .arrow-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--dark-border);
+            color: var(--gray-500);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.125rem;
+            line-height: 1;
+        }
+        .arrow-btn:hover {
+            background: var(--dark-card-hover);
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 0 24px rgba(212,175,55,0.15);
+            transform: scale(1.08);
+        }
+        .arrow-btn:active { transform: scale(0.95); }
+
+        /* ===== SLIDES ===== */
+        .deck { position: relative; width: 100vw; height: 100vh; }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 3rem 4.5rem 5rem;
+            overflow-y: auto;
+            overflow-x: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.9s cubic-bezier(.4,0,.2,1), visibility 0.9s;
+            z-index: 1;
+        }
+        .slide::-webkit-scrollbar { width: 0; }
+        .slide.active { opacity: 1; visibility: visible; z-index: 2; }
+
+        .slide-inner {
+            max-width: 1280px;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+            margin: auto;
+        }
+
+        /* Subtle per-slide gradient overlay */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 40%, rgba(212,175,55,0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 50% at 80% 60%, rgba(245,158,11,0.03) 0%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== TYPOGRAPHY ===== */
+        .label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+        }
+        .label::before {
+            content: '';
+            width: 20px; height: 2px;
+            background: var(--gold);
+            border-radius: 1px;
+        }
+
+        .heading {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.875rem, 3.75vw, 3.25rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            color: var(--white);
+        }
+        .heading-gold {
+            background: linear-gradient(135deg, var(--gold), var(--amber), var(--gold-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .heading-lg {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+        }
+
+        .sub {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: var(--gray-400);
+            max-width: 640px;
+        }
+
+        .divider {
+            width: 56px; height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            border-radius: 2px;
+            margin: 1.5rem 0;
+        }
+
+        /* ===== GLASS CARD ===== */
+        .card {
+            background: rgba(255,255,255,0.62);
+            backdrop-filter: blur(24px) saturate(1.1);
+            -webkit-backdrop-filter: blur(24px) saturate(1.1);
+            border: 1px solid var(--dark-border);
+            border-radius: 1.125rem;
+            padding: 1.625rem;
+            transition: all 0.45s cubic-bezier(.4,0,.2,1);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.45s ease;
+            background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(212,175,55,0.06), transparent 40%);
+            pointer-events: none;
+        }
+        .card:hover::after { opacity: 1; }
+        .card:hover {
+            border-color: rgba(201,154,46,0.4);
+            box-shadow: 0 0 48px rgba(201,154,46,0.1), 0 8px 32px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+        }
+
+        .card-accent {
+            border-color: rgba(212,175,55,0.25);
+            box-shadow: 0 0 48px rgba(212,175,55,0.06);
+        }
+        .card-accent::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 5%, var(--gold) 50%, transparent 95%);
+            opacity: 0.7;
+        }
+
+        /* ===== ICON BOX ===== */
+        .icon-box {
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            background: var(--gold-muted);
+            border: 1px solid rgba(212,175,55,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.375rem;
+            flex-shrink: 0;
+            transition: all 0.35s ease;
+        }
+        .card:hover .icon-box {
+            background: rgba(212,175,55,0.22);
+            border-color: rgba(212,175,55,0.4);
+            box-shadow: 0 0 20px rgba(212,175,55,0.15);
+        }
+
+        /* ===== GRIDS ===== */
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+        .g2c { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 3rem; align-items: center; }
+        .g2cr { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 3rem; align-items: center; }
+
+        /* ===== STAT ===== */
+        .stat-num {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--gold), var(--amber));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.375rem;
+        }
+        .stat-label { font-size: 0.9375rem; color: var(--gray-400); }
+        .stat-num-sm { font-size: 2.25rem; }
+
+        /* ===== FEATURE LIST ===== */
+        .flist { list-style: none; display: flex; flex-direction: column; gap: 0.875rem; }
+        .flist li {
+            display: flex; align-items: flex-start; gap: 0.875rem;
+            font-size: 1rem; color: var(--gray-300); line-height: 1.5;
+        }
+        .flist-chk {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--gold-muted);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 2px;
+        }
+        .flist-chk svg { width: 12px; height: 12px; color: var(--gold); }
+
+        /* ===== MODULE BADGE ===== */
+        .mbadge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4375rem 1rem;
+            background: var(--gold-muted);
+            border: 1px solid rgba(212,175,55,0.25);
+            border-radius: 100px;
+            font-size: 0.8125rem; font-weight: 600; color: var(--gold);
+            margin-bottom: 1.25rem;
+        }
+        .mbadge-num {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--gold);
+            color: var(--ink-on-gold);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700;
+        }
+
+        /* ===== WORKFLOW ===== */
+        .wf-step { display: flex; gap: 1.25rem; }
+        .wf-num {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), var(--amber));
+            color: var(--ink-on-gold);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem; flex-shrink: 0;
+            box-shadow: 0 0 28px rgba(212,175,55,0.25);
+        }
+        .wf-body { flex: 1; padding-bottom: 2rem; border-left: 2px solid var(--dark-border); margin-left: -23px; padding-left: 2.25rem; }
+        .wf-body:last-child { border-left-color: transparent; }
+        .wf-title { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.375rem; }
+        .wf-desc { font-size: 0.9375rem; color: var(--gray-400); line-height: 1.55; }
+
+        /* ===== TEAM ===== */
+        .team-card { text-align: center; padding: 2.5rem 1.75rem; }
+        .team-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; }
+        .team-grid .team-card { padding: 1.25rem 0.875rem; min-height: 0; }
+        .team-grid .team-ava { width: 68px; height: 68px; font-size: 1.5rem; margin-bottom: 0.75rem; }
+        .team-grid .team-name { font-size: 0.9375rem; }
+        .team-grid .team-bio { font-size: 0.7375rem; line-height: 1.45; }
+        .team-ava {
+            width: 110px; height: 110px; border-radius: 50%;
+            background: linear-gradient(145deg, var(--dark-elevated), var(--dark-border));
+            border: 3px solid var(--dark-border);
+            margin: 0 auto 1.25rem;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.25rem;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        .team-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .card:hover .team-ava {
+            border-color: var(--gold);
+            box-shadow: 0 0 36px rgba(212,175,55,0.2);
+            transform: scale(1.06);
+        }
+        .team-name { font-size: 1.1875rem; font-weight: 600; margin-bottom: 0.375rem; }
+        .team-role { font-size: 0.875rem; color: var(--gold); font-weight: 500; margin-bottom: 0.875rem; }
+        .team-bio { font-size: 0.8125rem; color: var(--gray-400); line-height: 1.55; }
+
+        .stack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+        .stack-card {
+            display: flex; align-items: center; gap: 0.875rem;
+            padding: 1.25rem 1.5rem;
+            background: rgba(255,255,255,0.78);
+            border: 1px solid var(--dark-border-light);
+            border-radius: 0.75rem;
+        }
+        .stack-ico { color: var(--gold); font-size: 1.35rem; line-height: 1; }
+        .stack-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stack-desc { font-size: 0.8125rem; color: var(--gray-500); }
+
+        /* ===== ARCHITECTURE SVG ===== */
+        .arch-svg { width: 100%; height: auto; }
+        .arch-svg rect.an {
+            fill: rgba(17,17,17,0.85);
+            stroke: var(--dark-border);
+            stroke-width: 1.5;
+            rx: 10; ry: 10;
+            transition: all 0.35s ease;
+            cursor: default;
+        }
+        .arch-svg rect.an:hover {
+            stroke: var(--gold);
+            filter: drop-shadow(0 0 16px rgba(212,175,55,0.2));
+        }
+        .arch-svg rect.an-gold {
+            stroke: var(--gold);
+            fill: rgba(212,175,55,0.06);
+        }
+        .arch-svg text.at {
+            fill: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-weight: 600; font-size: 13px;
+        }
+        .arch-svg text.ats {
+            fill: var(--gray-500);
+            font-family: 'Inter', sans-serif;
+            font-weight: 400; font-size: 11px;
+        }
+        .arch-svg text.atg {
+            fill: var(--gold);
+            font-family: 'Inter', sans-serif;
+            font-weight: 600; font-size: 13px;
+        }
+        .arch-svg line.al {
+            stroke: var(--dark-border-light);
+            stroke-width: 1.5;
+        }
+        .arch-svg line.alg {
+            stroke: rgba(212,175,55,0.4);
+            stroke-width: 1.5;
+        }
+
+        /* ===== DEMO ===== */
+        .demo-wrap {
+            position: relative;
+            width: 100%; max-width: 880px;
+            margin: 0 auto;
+            aspect-ratio: 16/9;
+            background: linear-gradient(145deg, var(--dark-card), var(--dark-border));
+            border-radius: 1.25rem;
+            border: 2px solid var(--dark-border);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.45s ease;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .demo-wrap:hover {
+            border-color: var(--gold);
+            box-shadow: 0 0 80px rgba(212,175,55,0.12);
+        }
+        .demo-play {
+            width: 88px; height: 88px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), var(--amber));
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 60px rgba(212,175,55,0.4);
+            transition: all 0.4s ease;
+            position: relative;
+        }
+        .demo-play::before {
+            content: '';
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            border: 2px solid rgba(212,175,55,0.25);
+            animation: demoRing 2.5s ease-in-out infinite;
+        }
+        .demo-wrap:hover .demo-play {
+            transform: scale(1.12);
+            box-shadow: 0 0 80px rgba(212,175,55,0.55);
+        }
+        .demo-play svg { width: 32px; height: 32px; fill: var(--ink-on-gold); margin-left: 4px; }
+        .demo-tag {
+            position: absolute;
+            bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+            font-size: 0.9375rem; font-weight: 600; color: #FFFFFF;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(12px);
+            padding: 0.625rem 1.5rem;
+            border-radius: 100px;
+            border: 1px solid var(--dark-border);
+        }
+
+        @keyframes demoRing {
+            0%,100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0; }
+        }
+
+        /* ===== PROGRESS BAR INLINE ===== */
+        .pbar { width: 100%; height: 6px; background: var(--dark-border); border-radius: 3px; overflow: hidden; margin-top: 0.75rem; }
+        .pbar-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--amber));
+            width: 0%;
+            transition: width 1.2s cubic-bezier(.4,0,.2,1);
+            box-shadow: 0 0 8px rgba(212,175,55,0.4);
+        }
+
+        /* ===== THANK YOU ===== */
+        .ty-text {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(4rem, 9vw, 8rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--amber) 40%, var(--gold-light) 70%, var(--gold) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            line-height: 1.05;
+            animation: goldShimmer 4s linear infinite;
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .logo-ph {
+            width: 180px; height: 52px;
+            background: var(--dark-elevated);
+            border: 2px dashed var(--dark-border-light);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--gray-600); font-size: 0.8125rem;
+            margin: 0 auto 2.5rem;
+        }
+
+        .contact-row { display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+        .contact-item { display: flex; align-items: center; gap: 0.625rem; color: var(--gray-400); font-size: 0.9375rem; }
+        .contact-item svg { width: 18px; height: 18px; color: var(--gold); }
+
+        .btn-gold {
+            display: inline-flex; align-items: center; gap: 0.625rem;
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, var(--gold), var(--amber));
+            color: var(--ink-on-gold); font-weight: 600; font-size: 0.9375rem;
+            border-radius: 100px; border: none; cursor: pointer;
+            transition: all 0.3s ease; text-decoration: none;
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(212,175,55,0.35);
+        }
+
+        /* ===== ANIMATIONS ===== */
+        .anim { opacity: 0; transition: opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1); }
+        .anim.up { transform: translateY(28px); }
+        .anim.down { transform: translateY(-28px); }
+        .anim.left { transform: translateX(-36px); }
+        .anim.right { transform: translateX(36px); }
+        .anim.scale { transform: scale(0.92); }
+        .anim.go { opacity: 1; transform: translate(0) scale(1); }
+
+        .d1 { transition-delay: 0.08s; }
+        .d2 { transition-delay: 0.16s; }
+        .d3 { transition-delay: 0.24s; }
+        .d4 { transition-delay: 0.32s; }
+        .d5 { transition-delay: 0.40s; }
+        .d6 { transition-delay: 0.48s; }
+        .d7 { transition-delay: 0.56s; }
+        .d8 { transition-delay: 0.64s; }
+        .d9 { transition-delay: 0.72s; }
+        .d10 { transition-delay: 0.80s; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1200px) {
+            .g4 { grid-template-columns: repeat(2, 1fr); }
+            .team-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
+        @media (max-width: 1024px) {
+            .g3 { grid-template-columns: repeat(2, 1fr); }
+            .g2, .g2c, .g2cr { grid-template-columns: 1fr; gap: 2.5rem; }
+            .stack-grid { grid-template-columns: repeat(2, 1fr); }
+            .slide { padding: 3rem 2.5rem; }
+        }
+        @media (max-width: 768px) {
+            .g3, .g4 { grid-template-columns: 1fr; }
+            .team-grid, .stack-grid { grid-template-columns: 1fr; }
+            .slide { padding: 2rem 1.5rem; }
+            .side-arrows { right: 0.75rem; }
+            .arrow-btn { width: 38px; height: 38px; font-size: 1rem; }
+            .bottom-nav { bottom: 1rem; padding: 0.5rem 0.875rem; gap: 0.5rem; }
+            .dot { width: 6px; height: 6px; }
+            .stat-num { font-size: 2.25rem; }
+        }
+
+        /* ===== SELECTION ===== */
+        ::selection { background: rgba(212,175,55,0.25); color: var(--white); }
+    </style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<!-- Loading -->
+<div class="loading-screen" id="loader">
+    <div class="loading-brand">
+        <div class="loading-brand-icon">M</div>
+        <div class="loading-brand-text">AutoMark AI</div>
+    </div>
+    <div class="loading-track"><div class="loading-fill" id="loaderBar"></div></div>
+    <div class="loading-sub">Preparing presentation</div>
+</div>
+
+<!-- Top Progress -->
+<div class="top-progress" id="topProg" style="width:0%"></div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav" id="botNav">
+    <div id="dots"></div>
+    <div class="nav-counter"><b id="curN">1</b> / <span id="totN">10</span></div>
+</div>
+
+<!-- Side Arrows -->
+<div class="side-arrows" id="sideArrows">
+    <div class="arrow-btn" onclick="go(-1)">▲</div>
+    <div class="arrow-btn" onclick="go(1)">▼</div>
+</div>
+
+<!-- ===== DECK ===== -->
+<div class="deck" id="deck">
+
+<!-- ===================== SLIDE 1 — TEAM ===================== -->
+<div class="slide" data-i="0">
+<div class="slide-inner" style="text-align:center">
+    <div class="label anim up" data-a>MEET THE TEAM</div>
+    <h1 class="heading heading-gold anim up d1" data-a style="font-size:clamp(2rem,4vw,3.4rem)">Building the Future of<br>Real Estate Marketing</h1>
+    <p class="sub anim up d2" data-a style="margin:0 auto 2rem">A team of AI engineers, product strategists, and real estate experts on a mission to automate what shouldn't be manual.</p>
+    <div class="team-grid">
+        <div class="card team-card anim up d3" data-a>
+            <div class="team-ava"><img src="Abdulrahman Ashraf.jpg" alt="Abdelrahman Ashraf"></div>
+            <div class="team-name">Abdelrahman Ashraf</div>
+            <div class="team-bio">AI engineer focused on real estate automation, campaign workflows, and product execution.</div>
+        </div>
+        <div class="card team-card anim up d3" data-a>
+            <div class="team-ava"><img src="Hazem Waleed.jpg" alt="Hazem Waleed"></div>
+            <div class="team-name">Hazem Waleed</div>
+            <div class="team-bio">Product strategist connecting customer needs, property data, and campaign requirements.</div>
+        </div>
+        <div class="card team-card anim up d4" data-a>
+            <div class="team-ava"><img src="Kareem Adel.jpg" alt="Kareem Adel"></div>
+            <div class="team-name">Kareem Adel</div>
+            <div class="team-bio">Full-stack architect with expertise in LangGraph, multi-agent systems, and scalable cloud infrastructure.</div>
+        </div>
+        <div class="card team-card anim up d5" data-a>
+            <div class="team-ava"><img src="Mohamed Waleed.jpg" alt="Mohamed Waleed"></div>
+            <div class="team-name">Mohamed Waleed</div>
+            <div class="team-bio">Backend and integrations engineer building reliable APIs, data flow, and campaign automation.</div>
+        </div>
+        <div class="card team-card anim up d6" data-a>
+            <div class="team-ava"><img src="Zienab Ahmed.jpg" alt="Zienab Ahmed"></div>
+            <div class="team-name">Zienab Ahmed</div>
+            <div class="team-bio">ML specialist focused on LLM orchestration, prompt quality, and compliance-first AI design.</div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 2 - CHATBOT DATA COLLECTION ===================== -->
+<div class="slide" data-i="1">
+<div class="slide-inner">
+    <div style="text-align:center;margin-bottom:2rem">
+        <div class="label anim up" data-a style="justify-content:center">MODULE 1 — CHATBOT</div>
+        <h1 class="heading heading-gold anim up d1" data-a style="font-size:clamp(2rem,4vw,3.25rem)">Meet Mark — Your AI Campaign Agent</h1>
+        <p class="sub anim up d2" data-a style="margin:0 auto 0">Mark chats with your client, collects every detail about the property, then hands off a complete brief — straight into the campaign builder.</p>
+    </div>
+    <div class="g2" style="gap:2.5rem;align-items:stretch">
+        <div class="card card-accent anim up d3" data-a style="padding:1.75rem;display:flex;flex-direction:column;gap:1rem">
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+                <div style="width:38px;height:38px;border-radius:50%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.35);display:flex;align-items:center;justify-content:center;font-size:1.25rem">🤖</div>
+                <div>
+                    <div style="font-size:0.9375rem;font-weight:700;color:var(--gold)">Mark</div>
+                    <div style="font-size:0.75rem;color:var(--gray-500)">AI Campaign Chatbot • Online</div>
+                </div>
+            </div>
+            <div style="align-self:flex-start;max-width:84%;background:rgba(0,0,0,0.04);border:1px solid var(--dark-border-light);border-radius:1rem 1rem 1rem 0.25rem;padding:0.875rem 1rem;color:var(--gray-200);line-height:1.5;font-size:0.9375rem">Hi, I want to advertise an apartment in New Cairo.</div>
+            <div style="align-self:flex-end;max-width:88%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.28);border-radius:1rem 1rem 0.25rem 1rem;padding:0.875rem 1rem;color:var(--white);line-height:1.5;font-size:0.9375rem">Great. Send photos of the unit, then tell me the area, price range, delivery status, and ideal buyer profile.</div>
+            <div style="align-self:flex-start;max-width:84%;background:rgba(0,0,0,0.04);border:1px solid var(--dark-border-light);border-radius:1rem 1rem 1rem 0.25rem;padding:0.875rem 1rem;color:var(--gray-200);line-height:1.5;font-size:0.9375rem">Photos uploaded. 145m², semi-finished, near services and main roads.</div>
+            <div style="align-self:flex-end;max-width:88%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.28);border-radius:1rem 1rem 0.25rem 1rem;padding:0.875rem 1rem;color:var(--white);line-height:1.5;font-size:0.9375rem">I extracted the key selling points: location, space, natural light, flexible finishing. Still need your budget and campaign objective — then I'll build the campaign.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1.25rem">
+            <div class="card anim right d3" data-a style="padding:1.375rem 1.5rem;display:flex;align-items:center;gap:1rem">
+                <div style="font-size:1.5rem">💬</div>
+                <div><div style="font-size:0.9375rem;font-weight:600;margin-bottom:0.25rem">Conversational intake</div><div style="font-size:0.8125rem;color:var(--gray-400)">Chats in English or Arabic — no long forms</div></div>
+            </div>
+            <div class="card anim right d4" data-a style="padding:1.375rem 1.5rem;display:flex;align-items:center;gap:1rem">
+                <div style="font-size:1.5rem">🖼️</div>
+                <div><div style="font-size:0.9375rem;font-weight:600;margin-bottom:0.25rem">Vision analysis</div><div style="font-size:0.8125rem;color:var(--gray-400)">Reads photos and extracts property features automatically</div></div>
+            </div>
+            <div class="card anim right d5" data-a style="padding:1.375rem 1.5rem;display:flex;align-items:center;gap:1rem">
+                <div style="font-size:1.5rem">🎯</div>
+                <div><div style="font-size:0.9375rem;font-weight:600;margin-bottom:0.25rem">Smart clarification</div><div style="font-size:0.8125rem;color:var(--gray-400)">Asks only for missing details — nothing redundant</div></div>
+            </div>
+            <div class="card card-accent anim right d6" data-a style="padding:1.375rem 1.5rem;display:flex;align-items:center;gap:1rem;border-color:rgba(212,175,55,0.45)">
+                <div style="font-size:1.5rem">🚀</div>
+                <div><div style="font-size:0.9375rem;font-weight:700;color:var(--gold);margin-bottom:0.25rem">Hands off to campaign builder</div><div style="font-size:0.8125rem;color:var(--gray-400)">Structured brief passed automatically — no manual steps</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 3 - CAMPAIGN CREATION PIPELINE ===================== -->
+<div class="slide" data-i="2">
+<div class="slide-inner">
+    <div style="text-align:center;margin-bottom:2rem">
+        <div class="label anim up" data-a style="justify-content:center">MODULE 1 — CAMPAIGN BUILDER</div>
+        <h1 class="heading heading-gold anim up d1" data-a style="font-size:clamp(1.875rem,3.75vw,3rem)">From Brief to Live Campaign</h1>
+        <p class="sub anim up d2" data-a style="margin:0 auto">Once Mark hands off the brief, the multi-agent pipeline takes over — fully automated.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;padding-bottom:0.5rem" class="anim up d3" data-a>
+        <!-- Step boxes with arrows -->
+        <div class="card card-accent" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem;border-color:rgba(212,175,55,0.45)">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">📋</div>
+            <div style="font-size:0.875rem;font-weight:700;color:var(--gold);margin-bottom:0.25rem">Structured Brief</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">Property facts, audience, budget, assets</div>
+        </div>
+        <div style="color:var(--gold);font-size:1.375rem;padding:0 0.5rem;flex-shrink:0">→</div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">🔍</div>
+            <div style="font-size:0.875rem;font-weight:700;margin-bottom:0.25rem">Research</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">Market, audience & competitor ads</div>
+        </div>
+        <div style="color:var(--gold);font-size:1.375rem;padding:0 0.5rem;flex-shrink:0">→</div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">🎯</div>
+            <div style="font-size:0.875rem;font-weight:700;margin-bottom:0.25rem">Targeting & Budget</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">Audience plan, bid logic, placements</div>
+        </div>
+        <div style="color:var(--gold);font-size:1.375rem;padding:0 0.5rem;flex-shrink:0">→</div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">✍️</div>
+            <div style="font-size:0.875rem;font-weight:700;margin-bottom:0.25rem">Creative</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">Ad copy, headlines, media assets</div>
+        </div>
+        <div style="color:var(--gold);font-size:1.375rem;padding:0 0.5rem;flex-shrink:0">→</div>
+        <div class="card" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">🛡️</div>
+            <div style="font-size:0.875rem;font-weight:700;margin-bottom:0.25rem">Compliance</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">HOUSING rules validated automatically</div>
+        </div>
+        <div style="color:var(--gold);font-size:1.375rem;padding:0 0.5rem;flex-shrink:0">→</div>
+        <div class="card card-accent" style="flex:1;min-width:140px;text-align:center;padding:1.25rem 0.875rem;border-color:rgba(212,175,55,0.45)">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem">🚀</div>
+            <div style="font-size:0.875rem;font-weight:700;color:var(--gold);margin-bottom:0.25rem">Publish to Meta</div>
+            <div style="font-size:0.75rem;color:var(--gray-400);line-height:1.45">Campaign live after human approval</div>
+        </div>
+    </div>
+    <div class="g3" style="gap:1.25rem;margin-top:1.75rem">
+        <div class="card anim up d4" data-a style="padding:1.5rem;display:flex;align-items:flex-start;gap:0.875rem">
+            <div class="icon-box" style="width:44px;height:44px;flex-shrink:0">⚡</div>
+            <div><div style="font-size:1rem;font-weight:600;margin-bottom:0.375rem">Parallel agents</div><div style="font-size:0.875rem;color:var(--gray-400);line-height:1.5">Research, creative, and targeting agents run simultaneously — not one by one.</div></div>
+        </div>
+        <div class="card anim up d5" data-a style="padding:1.5rem;display:flex;align-items:flex-start;gap:0.875rem">
+            <div class="icon-box" style="width:44px;height:44px;flex-shrink:0">👤</div>
+            <div><div style="font-size:1rem;font-weight:600;margin-bottom:0.375rem">Human approval gate</div><div style="font-size:0.875rem;color:var(--gray-400);line-height:1.5">System pauses for review before any ad goes live — full control stays with the marketer.</div></div>
+        </div>
+        <div class="card anim up d6" data-a style="padding:1.5rem;display:flex;align-items:flex-start;gap:0.875rem">
+            <div class="icon-box" style="width:44px;height:44px;flex-shrink:0">📊</div>
+            <div><div style="font-size:1rem;font-weight:600;margin-bottom:0.375rem">Monitoring loop</div><div style="font-size:0.875rem;color:var(--gray-400);line-height:1.5">After launch, agents track performance daily and suggest optimizations.</div></div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 5 — TECHNOLOGY STACK ===================== -->
+<div class="slide" data-i="3">
+<div class="slide-inner" style="text-align:center">
+    <div class="mbadge anim up" data-a style="display:inline-flex;margin-bottom:0.875rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        STACK
+    </div>
+    <h2 class="heading anim up d1" data-a style="font-size:clamp(1.875rem,3.75vw,3rem);margin-bottom:2rem">Technology stack</h2>
+    <div class="stack-grid anim up d2" data-a style="text-align:left">
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(212,175,55,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">🔗</div>
+            <div><div class="stack-title">LangGraph 1.2</div><div class="stack-desc">Agent orchestration</div></div>
+        </div>
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">⚡</div>
+            <div><div class="stack-title">FastAPI</div><div class="stack-desc">Backend API + SSE streaming</div></div>
+        </div>
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">🧠</div>
+            <div><div class="stack-title">Google Gemini</div><div class="stack-desc">Text LLM + Vision + Image</div></div>
+        </div>
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(16,163,127,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">📢</div>
+            <div><div class="stack-title">Meta Marketing API</div><div class="stack-desc">Ad creation + Ad Library</div></div>
+        </div>
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">🗄️</div>
+            <div><div class="stack-title">PostgreSQL</div><div class="stack-desc">Business data + checkpoints</div></div>
+        </div>
+        <div class="stack-card">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(14,165,233,0.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0">🌐</div>
+            <div><div class="stack-title">Next.js 14</div><div class="stack-desc">Frontend (App Router)</div></div>
+        </div>
+    </div>
+    <div class="card card-accent anim up d3" data-a style="margin-top:1.5rem;padding:1.25rem;text-align:center">
+        <p style="font-size:0.9375rem;color:var(--gray-300);line-height:1.65;max-width:860px;margin:0 auto">The stack is built around a stateful agent graph: the chatbot gathers the brief, FastAPI streams progress, LangGraph coordinates campaign agents, and Meta APIs turn approved plans into live campaigns.</p>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 6 — MODULE 2A ===================== -->
+<div class="slide" data-i="4">
+<div class="slide-inner">
+    <div class="g2cr">
+        <div>
+            <div class="mbadge anim left" data-a><span class="mbadge-num">2</span>ORCAST CRM AGENT</div>
+            <h1 class="heading anim left d1" data-a>24/7 AI Sales Agent<br>Across Every Channel</h1>
+            <p class="sub anim left d2" data-a>Capture every lead, answer every question, and never miss an opportunity — even at 3 AM. Converts social engagement into qualified pipeline.</p>
+            <div class="divider anim left d3" data-a></div>
+            <ul class="flist anim left d4" data-a>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Instant response on Messenger, Comments, and Phone</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Automatic 4-factor lead scoring (0-100)</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Smart escalation with full conversation context</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>HubSpot contact + deal creation in real time</li>
+            </ul>
+        </div>
+        <div class="g2" style="gap:1.25rem">
+            <div class="card anim right d3" data-a style="text-align:center;padding:1.75rem">
+                <div style="font-size:1.75rem;margin-bottom:0.875rem">💬</div>
+                <h4 style="font-size:1.0625rem;font-weight:600;margin-bottom:0.375rem">Messenger</h4>
+                <p style="font-size:0.8125rem;color:var(--gray-400)">Text, voice & image conversations with Gemini-powered understanding</p>
+            </div>
+            <div class="card anim right d4" data-a style="text-align:center;padding:1.75rem">
+                <div style="font-size:1.75rem;margin-bottom:0.875rem">📝</div>
+                <h4 style="font-size:1.0625rem;font-weight:600;margin-bottom:0.375rem">Page Comments</h4>
+                <p style="font-size:0.8125rem;color:var(--gray-400)">Public reply + auto-convert to private DM conversation</p>
+            </div>
+            <div class="card anim right d5" data-a style="text-align:center;padding:1.75rem">
+                <div style="font-size:1.75rem;margin-bottom:0.875rem">📞</div>
+                <h4 style="font-size:1.0625rem;font-weight:600;margin-bottom:0.375rem">Voice Calls</h4>
+                <p style="font-size:0.8125rem;color:var(--gray-400)">Vapi-powered phone agent handles live inbound calls</p>
+            </div>
+            <div class="card anim right d6" data-a style="text-align:center;padding:1.75rem">
+                <div style="font-size:1.75rem;margin-bottom:0.875rem">📊</div>
+                <h4 style="font-size:1.0625rem;font-weight:600;margin-bottom:0.375rem">HubSpot Sync</h4>
+                <p style="font-size:0.8125rem;color:var(--gray-400)">Auto-create contacts, deals, and notes in your CRM</p>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 7 — MODULE 2B ===================== -->
+<div class="slide" data-i="5">
+<div class="slide-inner">
+    <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="mbadge anim up" data-a style="display:inline-flex"><span class="mbadge-num">2</span>ORCAST CRM — PIPELINE</div>
+        <h2 class="heading anim up d1" data-a style="font-size:clamp(1.75rem,3.5vw,2.5rem)">Intelligent Lead Processing</h2>
+    </div>
+    <div class="card card-accent anim scale d2" data-a style="padding:2.5rem;margin-bottom:2rem">
+        <svg class="arch-svg" viewBox="0 0 1060 180" xmlns="http://www.w3.org/2000/svg">
+            <rect class="an an-gold" x="0" y="55" width="130" height="70"/>
+            <text class="atg" x="65" y="85" text-anchor="middle">Inbound</text>
+            <text class="ats" x="65" y="103" text-anchor="middle">Message</text>
+
+            <rect class="an" x="170" y="55" width="130" height="70"/>
+            <text class="at" x="235" y="85" text-anchor="middle">Memory</text>
+            <text class="ats" x="235" y="103" text-anchor="middle">Load Context</text>
+
+            <rect class="an an-gold" x="340" y="55" width="130" height="70"/>
+            <text class="atg" x="405" y="85" text-anchor="middle">Intent</text>
+            <text class="ats" x="405" y="103" text-anchor="middle">Classify</text>
+
+            <rect class="an" x="510" y="10" width="120" height="48" rx="8" ry="8"/>
+            <text class="at" x="570" y="39" text-anchor="middle" style="font-size:12px">CRM Request</text>
+
+            <rect class="an" x="510" y="66" width="120" height="48" rx="8" ry="8"/>
+            <text class="at" x="570" y="95" text-anchor="middle" style="font-size:12px">Knowledge Q</text>
+
+            <rect class="an" x="510" y="122" width="120" height="48" rx="8" ry="8"/>
+            <text class="at" x="570" y="151" text-anchor="middle" style="font-size:12px">Escalation</text>
+
+            <rect class="an" x="680" y="55" width="130" height="70"/>
+            <text class="at" x="745" y="85" text-anchor="middle">Generate</text>
+            <text class="ats" x="745" y="103" text-anchor="middle">Response</text>
+
+            <rect class="an an-gold" x="860" y="55" width="190" height="70"/>
+            <text class="atg" x="955" y="85" text-anchor="middle">Save & Send</text>
+            <text class="ats" x="955" y="103" text-anchor="middle">Reply to Channel</text>
+
+            <line class="alg" x1="130" y1="90" x2="170" y2="90"/>
+            <line class="al" x1="300" y1="90" x2="340" y2="90"/>
+            <line class="al" x1="470" y1="75" x2="510" y2="34"/>
+            <line class="al" x1="470" y1="90" x2="510" y2="90"/>
+            <line class="al" x1="470" y1="105" x2="510" y2="146"/>
+            <line class="al" x1="630" y1="34" x2="680" y2="80"/>
+            <line class="al" x1="630" y1="90" x2="680" y2="90"/>
+            <line class="al" x1="630" y1="146" x2="680" y2="100"/>
+            <line class="alg" x1="810" y1="90" x2="860" y2="90"/>
+        </svg>
+    </div>
+    <div class="g4">
+        <div class="card anim up d3" data-a style="text-align:center;padding:1.5rem">
+            <div class="icon-box" style="width:44px;height:44px;margin:0 auto 0.75rem;font-size:1.25rem">🧠</div>
+            <div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.25rem">Context Memory</div>
+            <div style="font-size:0.8125rem;color:var(--gray-400)">Rolling conversation summary</div>
+        </div>
+        <div class="card anim up d4" data-a style="text-align:center;padding:1.5rem">
+            <div class="icon-box" style="width:44px;height:44px;margin:0 auto 0.75rem;font-size:1.25rem">🎯</div>
+            <div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.25rem">Lead Scoring</div>
+            <div style="font-size:0.8125rem;color:var(--gray-400)">4-factor 0-100 scoring</div>
+        </div>
+        <div class="card anim up d5" data-a style="text-align:center;padding:1.5rem">
+            <div class="icon-box" style="width:44px;height:44px;margin:0 auto 0.75rem;font-size:1.25rem">📚</div>
+            <div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.25rem">RAG Knowledge</div>
+            <div style="font-size:0.8125rem;color:var(--gray-400)">Hybrid vector + text search</div>
+        </div>
+        <div class="card anim up d6" data-a style="text-align:center;padding:1.5rem">
+            <div class="icon-box" style="width:44px;height:44px;margin:0 auto 0.75rem;font-size:1.25rem">🤝</div>
+            <div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.25rem">Smart Escalation</div>
+            <div style="font-size:0.8125rem;color:var(--gray-400)">Full context handoff</div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 8 — MODULE 3B ===================== -->
+<div class="slide" data-i="6">
+<div class="slide-inner">
+    <div style="text-align:center;margin-bottom:2.5rem">
+        <div class="mbadge anim up" data-a style="display:inline-flex"><span class="mbadge-num">3</span>DATA ANALYTICS — WORKFLOW</div>
+        <h2 class="heading anim up d1" data-a style="font-size:clamp(1.75rem,3.5vw,2.5rem)">From Data to Decisions</h2>
+    </div>
+    <div class="g3" style="margin-bottom:2.5rem">
+        <div class="card anim up d2" data-a style="text-align:center;padding:2.5rem 2rem">
+            <div style="font-size:2.75rem;margin-bottom:1.25rem">📤</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:0.875rem">1. Upload Data</h3>
+            <p style="font-size:0.9375rem;color:var(--gray-400);line-height:1.6">CSV, Excel, SQL database, or direct CRM connection. Up to 100K rows supported out of the box.</p>
+        </div>
+        <div class="card anim up d3" data-a style="text-align:center;padding:2.5rem 2rem">
+            <div style="font-size:2.75rem;margin-bottom:1.25rem">⚡</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:0.875rem">2. AI Processing</h3>
+            <p style="font-size:0.9375rem;color:var(--gray-400);line-height:1.6">8 specialized agents run in parallel — profiling, KPI discovery, insight generation, and visualization planning.</p>
+        </div>
+        <div class="card anim up d4" data-a style="text-align:center;padding:2.5rem 2rem">
+            <div style="font-size:2.75rem;margin-bottom:1.25rem">📊</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:0.875rem">3. Explore Results</h3>
+            <p style="font-size:0.9375rem;color:var(--gray-400);line-height:1.6">6-tab dashboard with KPIs, insights, interactive charts, full report, and conversational Q&A.</p>
+        </div>
+    </div>
+    <div class="card card-accent anim up d5" data-a style="padding:2rem">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem">
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">📈</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">Overview</div><div style="font-size:0.8125rem;color:var(--gray-400)">Executive summary</div></div>
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">🎯</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">KPIs</div><div style="font-size:0.8125rem;color:var(--gray-400)">Metrics + formulas</div></div>
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">💡</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">Insights</div><div style="font-size:0.8125rem;color:var(--gray-400)">Evidence-backed</div></div>
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">📊</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">Visualizations</div><div style="font-size:0.8125rem;color:var(--gray-400)">Interactive charts</div></div>
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">📄</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">Report</div><div style="font-size:0.8125rem;color:var(--gray-400)">Markdown export</div></div>
+            <div style="text-align:center"><div style="font-size:1.375rem;margin-bottom:0.375rem">💬</div><div style="font-weight:600;font-size:0.9375rem;margin-bottom:0.125rem">Chat Q&amp;A</div><div style="font-size:0.8125rem;color:var(--gray-400)">Ask follow-up questions</div></div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 9 — DEMO ===================== -->
+<div class="slide" data-i="7">
+<div class="slide-inner" style="text-align:center">
+    <div class="label anim up" data-a style="justify-content:center">LIVE DEMONSTRATION</div>
+    <h1 class="heading heading-gold heading-lg anim up d1" data-a>See It in Action</h1>
+    <p class="sub anim up d2" data-a style="margin:0 auto 2.5rem">Watch AutoMark AI transform real estate marketing from a weeks-long manual process into a 2-minute automated workflow.</p>
+    <a href="https://drive.google.com/file/d/1Yqt_nGvoS8zCXYh1zc0iAz8FCPtJdUO-/view?usp=sharing" target="_blank" rel="noopener" class="demo-wrap anim scale d3" data-a style="text-decoration:none">
+        <div class="demo-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="demo-tag">Watch Full Demo Video</div>
+    </a>
+    <div style="display:flex;gap:2.5rem;justify-content:center;margin-top:2rem;flex-wrap:wrap">
+        <div class="anim up d4" data-a style="display:flex;align-items:center;gap:0.625rem"><div style="width:10px;height:10px;border-radius:50%;background:var(--gold)"></div><span style="font-size:0.9375rem;color:var(--gray-300)">Real unit photos</span></div>
+        <div class="anim up d5" data-a style="display:flex;align-items:center;gap:0.625rem"><div style="width:10px;height:10px;border-radius:50%;background:var(--gold)"></div><span style="font-size:0.9375rem;color:var(--gray-300)">Live Meta campaign creation</span></div>
+        <div class="anim up d6" data-a style="display:flex;align-items:center;gap:0.625rem"><div style="width:10px;height:10px;border-radius:50%;background:var(--gold)"></div><span style="font-size:0.9375rem;color:var(--gray-300)">AI optimization loop</span></div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 9 — ENGINEERING HIGHLIGHTS ===================== -->
+<div class="slide" data-i="8">
+<div class="slide-inner">
+    <div style="text-align:center;margin-bottom:3rem">
+        <div class="label anim up" data-a style="justify-content:center">ENGINEERING HIGHLIGHTS</div>
+        <h1 class="heading anim up d1" data-a>Built to Be Trusted, Not Just Smart</h1>
+        <p class="sub anim up d2" data-a style="margin:0 auto">Every decision in the system is traceable, structured, and reproducible.</p>
+    </div>
+    <div class="g3" style="gap:2.25rem">
+        <div class="card anim up d3" data-a style="padding:2.25rem">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.3);color:var(--gold);font-weight:700;font-size:0.8125rem;margin-bottom:1.25rem">01</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:1rem">Deterministic Routing</h3>
+            <ul class="flist">
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Every action maps to an explicit graph node, never a free-form agent choice</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Human handoff triggered by an auditable formula, not a guess</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Full tracing on every run and every tool call</li>
+            </ul>
+        </div>
+        <div class="card anim up d4" data-a style="padding:2.25rem">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.3);color:var(--gold);font-weight:700;font-size:0.8125rem;margin-bottom:1.25rem">02</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:1rem">Structured Everywhere</h3>
+            <ul class="flist">
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>LLM outputs constrained to strict schemas, never parsed from free text</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Hybrid retrieval fused with Reciprocal Rank Fusion</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Bounded tool-call loops prevent runaway agent behavior</li>
+            </ul>
+        </div>
+        <div class="card anim up d5" data-a style="padding:2.25rem">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--gold-muted);border:1px solid rgba(212,175,55,0.3);color:var(--gold);font-weight:700;font-size:0.8125rem;margin-bottom:1.25rem">03</div>
+            <h3 style="font-size:1.1875rem;font-weight:600;margin-bottom:1rem">Production-Minded</h3>
+            <ul class="flist">
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Fully async stack — no blocking on I/O</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Checkpointed graph state — conversations resume exactly where they left off</li>
+                <li><span class="flist-chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Rolling memory summarization keeps context bounded at any length</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===================== SLIDE 11 — THANK YOU ===================== -->
+<div class="slide" data-i="9">
+<div class="slide-inner" style="text-align:center">
+    <div class="ty-text anim scale d1" data-a>Thank You</div>
+    <p class="sub anim up d2" data-a style="margin:0 auto 2.5rem;max-width:560px;text-align:center">Interested in the engineering behind this project? I'd love to talk through it.</p>
+    <div class="contact-row anim up d3" data-a>
+        <a class="contact-item" href="mailto:azkareem1111@gmail.com"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>azkareem1111@gmail.com</span></a>
+        <div class="contact-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>Cairo, Egypt</span></div>
+        <a class="contact-item" href="https://github.com/Kareem-Adel00" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>github.com/Kareem-Adel00</span></a>
+        <a class="contact-item" href="https://www.linkedin.com/in/kareem-al-lboudy95/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S.02 4.88.02 3.5 1.13 1 2.5 1s2.48 1.12 2.48 2.5ZM.35 8h4.3v14h-4.3V8Zm7.72 0h4.12v1.91h.06c.57-1.09 1.98-2.24 4.08-2.24 4.36 0 5.17 2.87 5.17 6.6V22h-4.3v-6.85c0-1.63-.03-3.73-2.28-3.73-2.28 0-2.63 1.78-2.63 3.61V22h-4.3V8h.08Z"/></svg><span>linkedin.com/in/kareem-al-lboudy95</span></a>
+    </div>
+    <div style="margin-top:2.5rem" class="anim up d4" data-a>
+        <a href="https://www.linkedin.com/in/kareem-al-lboudy95/" target="_blank" rel="noopener" class="btn-gold">Let's Connect <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    </div>
+</div>
+</div>
+
+</div><!-- /deck -->
+
+<script>
+/* ============================================================
+   PARTICLE BACKGROUND
+   ============================================================ */
+(function(){
+    const c = document.getElementById('particleCanvas');
+    const ctx = c.getContext('2d');
+    let W, H, particles = [];
+    const COUNT = 60;
+
+    function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class P {
+        constructor(){ this.reset(); }
+        reset(){
+            this.x = Math.random() * W;
+            this.y = Math.random() * H;
+            this.r = Math.random() * 1.5 + 0.5;
+            this.vx = (Math.random() - 0.5) * 0.3;
+            this.vy = (Math.random() - 0.5) * 0.3;
+            this.alpha = Math.random() * 0.35 + 0.05;
+        }
+        update(){
+            this.x += this.vx;
+            this.y += this.vy;
+            if(this.x < -10 || this.x > W+10 || this.y < -10 || this.y > H+10) this.reset();
+        }
+        draw(){
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(0.1, this.r), 0, Math.PI*2);
+            ctx.fillStyle = `rgba(212,175,55,${this.alpha})`;
+            ctx.fill();
+        }
+    }
+
+    for(let i=0;i<COUNT;i++) particles.push(new P());
+
+    function loop(){
+        ctx.clearRect(0,0,W,H);
+        particles.forEach(p=>{ p.update(); p.draw(); });
+
+        // Draw connections
+        for(let i=0;i<particles.length;i++){
+            for(let j=i+1;j<particles.length;j++){
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx*dx+dy*dy);
+                if(dist < 150){
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(212,175,55,${0.06 * (1 - dist/150)})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(loop);
+    }
+    // Respect reduced motion
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches) loop();
+})();
+
+/* ============================================================
+   SLIDE ENGINE
+   ============================================================ */
+const slides = [...document.querySelectorAll('.slide')];
+const TOTAL = slides.length;
+let cur = 0, busy = false;
+
+document.getElementById('totN').textContent = TOTAL;
+
+// Build dots
+const dotsWrap = document.getElementById('dots');
+dotsWrap.style.display = 'flex';
+dotsWrap.style.gap = '0.5rem';
+for(let i=0;i<TOTAL;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===0?' active':'');
+    d.onclick = ()=> goTo(i);
+    dotsWrap.appendChild(d);
+}
+
+/* --- Loading --- */
+let prog = 0;
+const lBar = document.getElementById('loaderBar');
+const lScr = document.getElementById('loader');
+const lInt = setInterval(()=>{
+    prog += Math.random()*18+6;
+    if(prog>=100){ prog=100; clearInterval(lInt);
+        setTimeout(()=>{
+            lScr.classList.add('hidden');
+            activate(0);
+            document.getElementById('botNav').classList.add('visible');
+            document.getElementById('sideArrows').classList.add('visible');
+        },400);
+    }
+    lBar.style.width = prog+'%';
+},120);
+
+/* --- Navigation --- */
+function go(dir){
+    const next = cur + dir;
+    if(next>=0 && next<TOTAL) goTo(next);
+}
+function goTo(idx){
+    if(busy || idx===cur) return;
+    busy = true;
+    deactivate(cur);
+    cur = idx;
+    activate(cur);
+    setTimeout(()=> busy=false, 900);
+}
+
+function activate(idx){
+    slides[idx].classList.add('active');
+    const anims = slides[idx].querySelectorAll('[data-a]');
+    setTimeout(()=>{
+        anims.forEach(el=> el.classList.add('go'));
+        runCounters(slides[idx]);
+        runBars(slides[idx]);
+    }, 80);
+    updateUI();
+}
+
+function deactivate(idx){
+    slides[idx].classList.remove('active');
+    slides[idx].querySelectorAll('[data-a]').forEach(el=> el.classList.remove('go'));
+    // Reset progress bars
+    slides[idx].querySelectorAll('.pbar-fill').forEach(b=> b.style.width='0%');
+}
+
+function updateUI(){
+    document.getElementById('curN').textContent = cur+1;
+    document.getElementById('topProg').style.width = ((cur/(TOTAL-1))*100)+'%';
+    document.querySelectorAll('.dot').forEach((d,i)=> d.classList.toggle('active', i===cur));
+}
+
+/* --- Keyboard --- */
+document.addEventListener('keydown', e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); go(1); }
+    else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){ e.preventDefault(); go(-1); }
+});
+
+/* --- Wheel --- */
+let lastWheel = 0;
+document.addEventListener('wheel', e=>{
+    const now = Date.now();
+    if(now - lastWheel < 900) return;
+    lastWheel = now;
+    go(e.deltaY > 0 ? 1 : -1);
+}, {passive:true});
+
+/* --- Touch --- */
+let ty = 0;
+document.addEventListener('touchstart', e=>{ ty = e.touches[0].clientY; }, {passive:true});
+document.addEventListener('touchend', e=>{
+    const diff = ty - e.changedTouches[0].clientY;
+    if(Math.abs(diff)>50) go(diff>0?1:-1);
+}, {passive:true});
+
+/* ============================================================
+   ANIMATED COUNTERS
+   ============================================================ */
+function runCounters(slide){
+    slide.querySelectorAll('[data-count]').forEach(el=>{
+        const target = parseInt(el.dataset.count);
+        const prefix = el.dataset.prefix || '';
+        const suffix = el.dataset.suffix || '';
+        let current = 0;
+        const step = Math.max(1, Math.floor(target / 40));
+        const iv = setInterval(()=>{
+            current += step;
+            if(current >= target){ current = target; clearInterval(iv); }
+            el.textContent = prefix + current + suffix;
+        }, 30);
+    });
+}
+
+function runBars(slide){
+    slide.querySelectorAll('.pbar-fill[data-w]').forEach(b=>{
+        setTimeout(()=>{ b.style.width = b.dataset.w + '%'; }, 300);
+    });
+}
+
+/* ============================================================
+   CARD GLOW FOLLOW CURSOR
+   ============================================================ */
+document.addEventListener('mousemove', e=>{
+    document.querySelectorAll('.slide.active .card').forEach(card=>{
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+});
+
+</script>
+
+</body>
+</html>
